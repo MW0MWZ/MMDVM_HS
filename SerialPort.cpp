@@ -373,20 +373,31 @@ uint8_t CSerialPort::setConfig(const uint8_t* data, uint8_t length)
   io.setLoDevYSF(ysfLoDev);
 
   if (!m_firstCal || (modemState != STATE_DMRCAL && modemState != STATE_DMRDMO1K && modemState != STATE_RSSICAL && modemState != STATE_INTCAL && modemState != STATE_POCSAGCAL)) {
+    MMDVM_STATE conf = STATE_IDLE;
     if(m_dstarEnable)
-      io.ifConf(STATE_DSTAR, true);
+      conf = STATE_DSTAR;
     else if(m_dmrEnable)
-      io.ifConf(STATE_DMR, true);
+      conf = STATE_DMR;
     else if(m_ysfEnable)
-      io.ifConf(STATE_YSF, true);
+      conf = STATE_YSF;
     else if(m_p25Enable)
-      io.ifConf(STATE_P25, true);
+      conf = STATE_P25;
     else if(m_nxdnEnable)
-      io.ifConf(STATE_NXDN, true);
+      conf = STATE_NXDN;
     else if(m_m17Enable)
-      io.ifConf(STATE_M17, true);
+      conf = STATE_M17;
     else if(m_pocsagEnable)
-      io.ifConf(STATE_POCSAG, true);
+      conf = STATE_POCSAG;
+    if (conf != STATE_IDLE)
+      io.ifConf(conf, true);
+    // The set-up (a chip reset and IF filter calibration) cuts the bits
+    // being received: that mode's receiver starts afresh, finding the
+    // signal again at its next sync. Otherwise one in the middle of a
+    // transmission carries on misaligned: D-Star looks for its data sync
+    // only where it expects it, and gives up only after 100 frames
+    // (MMDVMCal sends a config with every frequency step).
+    if (conf != STATE_IDLE && conf != STATE_POCSAG)
+      io.scanReset(conf);
   }
 
   io.start();
