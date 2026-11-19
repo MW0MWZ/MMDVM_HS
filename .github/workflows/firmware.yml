@@ -24,7 +24,7 @@ jobs:
             make git jq binutils bsdextrautils ca-certificates
           arm-none-eabi-gcc --version | head -1
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
           fetch-depth: 0
@@ -34,7 +34,7 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           scripts/release_build.sh dist "${{ github.ref_type == 'tag' && github.ref_name || '' }}"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: firmware
           path: dist/
@@ -47,7 +47,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: firmware
           path: dist
@@ -66,8 +66,14 @@ jobs:
           else
             kind=(--latest)
           fi
-          gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "$TAG" "${kind[@]}" \
-            --notes "MMDVM_HS firmware for every board in configs/, built from ${gitid} (${desc#*-}).
+          notes="MMDVM_HS firmware for every board in configs/, built from ${gitid} (${desc#*-}).
 
-          Each board reports \`GitID #${gitid}\` in its version string. firmware.json maps every board (by its Pi-Star id, from boards.json) to its image, with what it reports, TCXO, duplex, host link, flash method and SHA-256; SHA256SUMS covers the images and the manifest." \
-            -- *.bin firmware.json SHA256SUMS
+          Each board reports \`GitID #${gitid}\` in its version string. firmware.json maps every board (by its Pi-Star id, from boards.json) to its image, with what it reports, TCXO, duplex, host link, flash method and SHA-256; SHA256SUMS covers the images and the manifest."
+          # A re-run of the same tag replaces the release's files
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --title "$TAG" "${kind[@]}" --notes "$notes"
+            gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber -- *.bin firmware.json SHA256SUMS
+          else
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "$TAG" "${kind[@]}" --notes "$notes" \
+              -- *.bin firmware.json SHA256SUMS
+          fi

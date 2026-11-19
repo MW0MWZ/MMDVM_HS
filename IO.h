@@ -44,8 +44,8 @@
 #define BAN2_MIN  435000000
 #define BAN2_MAX  438000000
 
-#define SCAN_TIME  1920
 #define SCAN_PAUSE 20000
+#define SCAN_FULL_EVERY 1000U   // mode switches between full set-ups (IF filter recalibration)
 
 #if defined(DUPLEX)
 #if defined(STM32_USB_HOST)
@@ -136,18 +136,25 @@ public:
   // RF interface API
   void      setTX(void);
   void      setRX(bool doSle = true);
-  void      ifConf(MMDVM_STATE modemState, bool reset);
+  void      ifConf(MMDVM_STATE modemState, bool reset, bool full = true);
+  void      scanReset(MMDVM_STATE modemState);
+  void      scanTo(uint8_t pos);
+  void      scanLeds(void);
+  void      modeLeds(MMDVM_STATE modemState);
+  bool      signalPresent(void);
 #if defined(DUPLEX)
-  void      ifConf2(MMDVM_STATE modemState);
+  void      ifConf2(MMDVM_STATE modemState, bool full = true);
 #endif
   void      start(void);
   void      startInt(void);
   void      setDeviations(uint8_t dstarTXLevel, uint8_t dmrTXLevel, uint8_t ysfTXLevel, uint8_t p25TXLevel, uint8_t nxdnTXLevel, uint8_t m17TXLevel, uint8_t pocsagTXLevel, bool ysfLoDev);
   void      updateCal(void);
 
-#if defined(SEND_RSSI_DATA)
   uint16_t  readRSSI(void);
-#endif
+  uint16_t  sampleRSSI(uint16_t last);
+  uint32_t  ifCentre(MMDVM_STATE modemState);
+  uint16_t  readBack(uint16_t control);
+  void      signalPoll(bool decoding);
 
   // Misc functions
   void      dlybit(void);
@@ -182,6 +189,10 @@ private:
   bool               m_scanEnable;
   uint32_t           m_scanPauseCnt;
   uint8_t            m_scanPos;
+  uint16_t           m_scanSwitches;
+  bool               m_hunting;
+  MMDVM_STATE        m_lastHeard;
+  uint32_t           m_rxIF;          // the demodulator's centre (RX LO offset), Hz
   uint8_t            m_TotalModes;
   MMDVM_STATE        m_Modes[6];
   bool               m_ledValue;

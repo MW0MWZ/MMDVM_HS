@@ -24,10 +24,12 @@ The build fails when a config in `configs/` is not used by any board in `boards.
 Each [release](https://github.com/MW0MWZ/MMDVM_HS/releases) carries:
 
 - `<id>.bin` for every board in `boards.json` (for example `hs_hat.bin`, `zum_rpi.bin`, `hs_hat_nano_hotspot.bin`).
-- `firmware.json`, the manifest. For every board it lists the id, name and aliases, the config, the image file, size and SHA-256, and the exact version string the image reports to MMDVM-Host (which ends `GitID #<commit>`). It also gives the board name, TCXO, duplex, host link (`serial` or `usb`) and how to flash the image:
+- `firmware.json`, the manifest (`"format": 1`). For every board it lists the id, name and aliases, the config, the image file, size and SHA-256, and the exact version string the image reports to MMDVM-Host (which ends `GitID #<commit>`). It also gives the board name, TCXO, duplex, host link (`serial` or `usb`) and how to flash the image:
   - serial boards: `stm32flash` from `0x08000000`, entering the bootloader through the board's BOOT0 and RESET GPIO lines;
   - USB boards: `dfu-util` to the USB bootloader at `0x08002000` (device `1eaf:0003`, alt 2).
 - `SHA256SUMS`, covering the images and the manifest.
+
+To check a release by hand: `sha256sum -c SHA256SUMS`.
 
 Releases are tagged with the firmware's version from [`version.h`](version.h):
 
@@ -102,7 +104,16 @@ This software is licenced under the GPL v2 and is intended for amateur and educa
 
 # Notes for previous users of MMDVM boards
 
-MMDVM_HS boards do not need deviation calibration like MMDVM boards, but could be necessary some frequency offset calibration. The ADF7021 has AFC (automatic frequency control), but this firmware only enables it for D-Star; AFC for the 4FSK modes (DMR, YSF, P25, NXDN and M17) is an experimental build option (`ADF7021_ENABLE_4FSK_AFC` in ADF7021.h).
+MMDVM_HS boards do not need deviation calibration like MMDVM boards, but could be necessary some frequency offset calibration. The ADF7021 has AFC (automatic frequency control): D-Star uses it, with a ±1.5 kHz pull-in range (`ADF7021_AFC_RANGE`) and the datasheet's recommended loop gains. The 4FSK modes (DMR, YSF, P25, NXDN and M17) have none: their signals come in bursts (DMR is TDMA), so the chip's AFC chases noise between them, and its frequency readback is only accurate to about ±0.5 kHz, too coarse to correct from. A hotspot's frequency error is best set by calibrating it with the radio it is used with, by bit error rate: MMDVMCal's BER tests stepped across the frequency, as the Pi-Star dashboard's Calibration page does, setting MMDVM-Host's RX and TX offsets.
+
+
+This fork sets the receiver up for a hotspot: radios close by, often far stronger than the ADF7021's RSSI can measure (it reads -47 dBm at most), rather than distant, weak stations:
+
+- Gain: AGC on, with the LNA in its reduced gain mode and the mixer at high linearity, and the AGC window lowered (`ADF7021_AGC_LOW` 10, `ADF7021_AGC_HIGH` 40, from 30/70), so the AGC sits at its lowest gain (input IP3 -3 dBm) for nearby radios and only raises it for a weak signal (`AD7021_GAIN_AUTO_REDUCED` in every board's config).
+- IF filter: 25 kHz in every mode (P25, NXDN and D-Star were 12.5 kHz): an off-frequency or drifting signal stays well inside the passband, and the IF filter no longer changes from mode to mode.
+- 4FSK correlator: K=16, twice the bandwidth of the datasheet's value (32 at most), for about twice the frequency tolerance at 1-2 dB of sensitivity (DMR, YSF, P25 and M17; NXDN, at half the symbol rate, is already twice as wide as its ideal at K=32).
+- Mode scanning: with the IF filter the same in every mode, a mode switch only rewrites the registers that differ between modes (about 100 µs, against 11 ms for a full set-up with a chip reset and IF filter calibration; the full set-up runs every 1000 switches), and the receive buffer is cleared and the new mode's receiver reset. With no signal, each mode is listened to in turn (200 ms; DMR 400 ms). When the RSSI shows a signal, the hunt starts with the mode last heard, then gives each mode one sync interval (DMR 70 ms, YSF 110, P25 190, NXDN 90, M17 50, D-Star 200). The mode LEDs do not follow the scan: while the modem is idle the LEDs of all the modes being scanned stay lit, and when the host takes a mode, only its LED.
+- Duplex boards: both ADF7021s take the board's AGC setting (the receiving one was fixed at the default AGC).
 
 The following options in MMDVM-Host.ini ([Modem] section) have not any effect for MMDVM_HS boards:
 

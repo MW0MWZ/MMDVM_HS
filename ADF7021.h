@@ -53,14 +53,44 @@ www.analog.com/media/en/technical-documentation/data-sheets/ADF7021.pdf
 // Support for ADF7021-N version: 
 // #define ADF7021_N_VER
 
-// Enable AFC support for DMR, YSF, P25, and M17 (experimental):
-// (AFC is already enabled by default in D-Star)
-// #define ADF7021_ENABLE_4FSK_AFC
+// AFC (automatic frequency control) on receive, D-Star only: it pulls in
+// a received signal up to ADF7021_AFC_RANGE Hz either side of the RX
+// frequency. The 4FSK modes (DMR, YSF, P25, NXDN, M17) have none: their
+// signals come in bursts (DMR is TDMA), and between them the AFC chases
+// noise. A hotspot's frequency error is set by calibrating it with the
+// user's radio (MMDVM-Host's RX/TX offsets).
 
-// Configure AFC with positive initial frequency offset:
-// #define ADF7021_AFC_POS
+// AGC window (AD7021_GAIN_AUTO_REDUCED), on the RSSI ADC's 0-79 scale: the
+// AGC lowers the gain when the RSSI is above ADF7021_AGC_HIGH and raises it
+// when below ADF7021_AGC_LOW (the ADF7021's defaults are 70 and 30). Set
+// low, it drops to its lowest gain (input IP3 -3 dBm) early, and noise
+// between transmissions and between TDMA bursts does not pull it back up:
+// a hotspot's radios are close by, and only a weak, distant signal raises
+// the gain.
+#define ADF7021_AGC_HIGH         40U
+#define ADF7021_AGC_LOW          10U
+
+// How far above the noise floor a signal must be to count as one, dB (the
+// mode scan starts hunting when it hears one)
+#define ADF7021_SIGNAL_MARGIN    10
+
+// AFC pull-in range either side of the RX frequency, in Hz (500 Hz steps)
+#define ADF7021_AFC_RANGE        1500
+
+// AFC loop gains, as register values (the datasheet allows KI > 6 and
+// KP < 7, and recommends KI = 11, KP = 4)
+#define ADF7021_AFC_KI           11U
+#define ADF7021_AFC_KP           4U
 
 /****** Support for 14.7456 MHz TCXO (modified RF7021SE boards) ******/
+// Correlator K for each demodulator (each crystal's DISC_BW values below are
+// worked out from them): the demodulator's centre is K x DEMOD_CLK / (4 x DISC_BW), which
+// the RX frequency is set from (ifCentre)
+#define ADF7021_K_DSTAR          85U
+#define ADF7021_K_4FSK           16U
+#define ADF7021_K_NXDN           32U
+#define ADF7021_K_POCSAG         22U
+
 #if defined(ADF7021_14_7456)
 
 // R = 4
@@ -113,12 +143,18 @@ www.analog.com/media/en/technical-documentation/data-sheets/ADF7021.pdf
 // Discriminator bandwith, demodulator (REG 04)
 // Bug in ADI evaluation software, use datasheet formula (4FSK)
 #define ADF7021_DISC_BW_DSTAR    522U // K=85
-#define ADF7021_DISC_BW_DMR      393U // K=32
-#define ADF7021_DISC_BW_YSF_L    393U // K=32
-#define ADF7021_DISC_BW_YSF_H    516U // K=28
-#define ADF7021_DISC_BW_P25      394U // K=32
-#define ADF7021_DISC_BW_NXDN     295U // K=32
-#define ADF7021_DISC_BW_M17      590U // K=32
+// 4FSK correlator K=16, twice the bandwidth of the datasheet's K (32 at most,
+// 28 for YSF_H): about twice the frequency tolerance (+-0.8 x the inner
+// deviation instead of +-0.4) for 1-2 dB of sensitivity, the right trade for a
+// hotspot. Not NXDN: at half the symbol rate its ideal K is about 68, so 32
+// is already twice as wide, and 16 does not decode. DISC_BW = DEMOD_CLK x K / 400 kHz (K=32/28 values: 393, 393, 516,
+// 394, 295, 590).
+#define ADF7021_DISC_BW_DMR      197U // K=16
+#define ADF7021_DISC_BW_YSF_L    197U // K=16
+#define ADF7021_DISC_BW_YSF_H    295U // K=16
+#define ADF7021_DISC_BW_P25      197U // K=16
+#define ADF7021_DISC_BW_NXDN     295U // K=32: NXDN, the narrowest mode, is already twice its ideal K
+#define ADF7021_DISC_BW_M17      295U // K=16
 #define ADF7021_DISC_BW_POCSAG   406U // K=22
 
 // Post demodulator bandwith (REG 04)
@@ -136,41 +172,9 @@ www.analog.com/media/en/technical-documentation/data-sheets/ADF7021.pdf
 // IF CAL (fine cal, defaults) (REG 06)
 #define ADF7021_REG6             0x05070E16
 
-// AFC configuration (REG 10)
-#define ADF7021_REG10_DSTAR      0x0C96473A
-#define ADF7021_REG10_POCSAG     0x1496473A
-
-#if defined(ADF7021_ENABLE_4FSK_AFC)
-#define ADF7021_REG10_DMR        0x01FE473A
-#define ADF7021_REG10_YSF        0x01FE473A
-#define ADF7021_REG10_P25        0x01FE473A
-#define ADF7021_REG10_NXDN       0x01FE473A
-#define ADF7021_REG10_M17        0x01FE473A
-#if defined(ADF7021_AFC_POS)
-#define AFC_OFFSET_DMR           -250
-#define AFC_OFFSET_YSF           -250
-#define AFC_OFFSET_P25           -250
-#define AFC_OFFSET_NXDN          -250
-#define AFC_OFFSET_M17           -250
-#else
-#define AFC_OFFSET_DMR           250
-#define AFC_OFFSET_YSF           250
-#define AFC_OFFSET_P25           250
-#define AFC_OFFSET_NXDN          250
-#define AFC_OFFSET_M17           250
-#endif
-#else
-#define ADF7021_REG10_DMR        0x049E472A
-#define ADF7021_REG10_YSF        0x049E472A
-#define ADF7021_REG10_P25        0x049E472A
-#define ADF7021_REG10_NXDN       0x049E472A
-#define ADF7021_REG10_M17        0x049E472A
-#define AFC_OFFSET_DMR           0
-#define AFC_OFFSET_YSF           0
-#define AFC_OFFSET_P25           0
-#define AFC_OFFSET_NXDN          0
-#define AFC_OFFSET_M17           0
-#endif
+// AFC (REG 10): AFC_SCALING_FACTOR = round(2^24 * 500 / XTAL)
+#define ADF7021_XTAL             14745600.0
+#define ADF7021_AFC_SCALING      569U
 
 /****** Support for 12.2880 MHz TCXO ******/
 #elif defined(ADF7021_12_2880)
@@ -224,12 +228,14 @@ www.analog.com/media/en/technical-documentation/data-sheets/ADF7021.pdf
 // Discriminator bandwith, demodulator (REG 04)
 // Bug in ADI evaluation software, use datasheet formula (4FSK)
 #define ADF7021_DISC_BW_DSTAR    522U // K=85
-#define ADF7021_DISC_BW_DMR      491U // K=32
-#define ADF7021_DISC_BW_YSF_L    491U // K=32
-#define ADF7021_DISC_BW_YSF_H    430U // K=28
-#define ADF7021_DISC_BW_P25      493U // K=32
-#define ADF7021_DISC_BW_NXDN     246U // K=32
-#define ADF7021_DISC_BW_M17      492U // K=32
+// 4FSK correlator K=16 (see the 14.7456 MHz section; K=32/28 values: 491,
+// 491, 430, 493, 246, 492)
+#define ADF7021_DISC_BW_DMR      246U // K=16
+#define ADF7021_DISC_BW_YSF_L    246U // K=16
+#define ADF7021_DISC_BW_YSF_H    246U // K=16
+#define ADF7021_DISC_BW_P25      246U // K=16
+#define ADF7021_DISC_BW_NXDN     246U // K=32 (see the 14.7456 MHz section)
+#define ADF7021_DISC_BW_M17      246U // K=16
 #define ADF7021_DISC_BW_POCSAG   338U // K=22
 
 // Post demodulator bandwith (REG 04)
@@ -247,64 +253,34 @@ www.analog.com/media/en/technical-documentation/data-sheets/ADF7021.pdf
 // IF CAL (fine cal, defaults) (REG 06)
 #define ADF7021_REG6             0x0505EBB6
 
-// AFC (REG 10)
-#define ADF7021_REG10_DSTAR      0x0C96557A
-#define ADF7021_REG10_POCSAG     0x1496557A
-
-#if defined(ADF7021_ENABLE_4FSK_AFC)
-#define ADF7021_REG10_DMR        0x01FE557A
-#define ADF7021_REG10_YSF        0x01FE557A
-#define ADF7021_REG10_P25        0x01FE557A
-#define ADF7021_REG10_NXDN       0x01FE557A
-#define ADF7021_REG10_M17        0x01FE557A
-#if defined(ADF7021_AFC_POS)
-#define AFC_OFFSET_DMR           -250
-#define AFC_OFFSET_YSF           -250
-#define AFC_OFFSET_P25           -250
-#define AFC_OFFSET_NXDN          -250
-#define AFC_OFFSET_M17           -250
-#else
-#define AFC_OFFSET_DMR           250
-#define AFC_OFFSET_YSF           250
-#define AFC_OFFSET_P25           250
-#define AFC_OFFSET_NXDN          250
-#define AFC_OFFSET_M17           250
-#endif
-#else
-#define ADF7021_REG10_DMR        0x049E556A
-#define ADF7021_REG10_YSF        0x049E556A
-#define ADF7021_REG10_P25        0x049E556A
-#define ADF7021_REG10_NXDN       0x049E556A
-#define ADF7021_REG10_M17        0x049E556A
-#define AFC_OFFSET_DMR           0
-#define AFC_OFFSET_YSF           0
-#define AFC_OFFSET_P25           0
-#define AFC_OFFSET_NXDN          0
-#define AFC_OFFSET_M17           0
-#endif
+// AFC (REG 10): AFC_SCALING_FACTOR = round(2^24 * 500 / XTAL)
+#define ADF7021_XTAL             12288000.0
+#define ADF7021_AFC_SCALING      683U
 
 #endif
 
-// Slicer threshold for 4FSK demodulator (REG 13)
+// Slicer threshold for 4FSK demodulator (REG 13). It scales with the
+// correlator's K: 78 x (outer deviation x K) / 100 kHz. These are for K=16,
+// half the values for the datasheet's K=32 (YSF_H 16/28 of its K=28 value).
 #if defined(ADF7021_N_VER)
 
 #define ADF7021_SLICER_TH_DSTAR  0U
-#define ADF7021_SLICER_TH_DMR    51U
-#define ADF7021_SLICER_TH_YSF_L  35U
-#define ADF7021_SLICER_TH_YSF_H  69U
-#define ADF7021_SLICER_TH_P25    43U
-#define ADF7021_SLICER_TH_NXDN   26U
-#define ADF7021_SLICER_TH_M17    59U		// Test
+#define ADF7021_SLICER_TH_DMR    26U  // K=32: 51
+#define ADF7021_SLICER_TH_YSF_L  18U  // K=32: 35
+#define ADF7021_SLICER_TH_YSF_H  39U  // K=28: 69
+#define ADF7021_SLICER_TH_P25    22U  // K=32: 43
+#define ADF7021_SLICER_TH_NXDN   26U  // K=32 (NXDN stays at K=32)
+#define ADF7021_SLICER_TH_M17    30U  // K=32: 59
 
 #else
 
 #define ADF7021_SLICER_TH_DSTAR  0U
-#define ADF7021_SLICER_TH_DMR    57U
-#define ADF7021_SLICER_TH_YSF_L  38U
-#define ADF7021_SLICER_TH_YSF_H  75U
-#define ADF7021_SLICER_TH_P25    47U
-#define ADF7021_SLICER_TH_NXDN   26U
-#define ADF7021_SLICER_TH_M17    59U		// Test
+#define ADF7021_SLICER_TH_DMR    29U  // K=32: 57
+#define ADF7021_SLICER_TH_YSF_L  19U  // K=32: 38
+#define ADF7021_SLICER_TH_YSF_H  43U  // K=28: 75
+#define ADF7021_SLICER_TH_P25    24U  // K=32: 47
+#define ADF7021_SLICER_TH_NXDN   26U  // K=32 (NXDN stays at K=32)
+#define ADF7021_SLICER_TH_M17    30U  // K=32: 59
 
 #endif
 

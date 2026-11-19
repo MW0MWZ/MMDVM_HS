@@ -36,6 +36,10 @@ m_ledCount(0U),
 m_scanEnable(false),
 m_scanPauseCnt(0U),
 m_scanPos(0U),
+m_scanSwitches(0U),
+m_hunting(false),
+m_lastHeard(STATE_IDLE),
+m_rxIF(100000U),
 m_ledValue(true),
 m_watchdog(0U),
 m_int1counter(0U),
@@ -99,6 +103,45 @@ void CIO::selfTest()
       if(blinks > 5U)
         break;
     }
+  }
+}
+
+// Scan dwell, in ms. The scan timer counts the receive clock, one tick per
+// bit at the current mode's bit rate.
+static uint32_t modeBitRate(MMDVM_STATE modemState)
+{
+  switch (modemState) {
+    case STATE_DSTAR:
+    case STATE_NXDN:
+      return 4800U;
+    default:
+      return 9600U;               // DMR, YSF, P25, M17
+  }
+}
+
+static uint32_t scanTicks(MMDVM_STATE modemState, uint32_t ms)
+{
+  return ms * modeBitRate(modemState) / 1000U;
+}
+
+// With no signal: long enough to catch a transmission already under way
+// (DMR has a voice sync only every 360 ms)
+static uint32_t idleDwellMs(MMDVM_STATE modemState)
+{
+  return modemState == STATE_DMR ? 400U : 200U;
+}
+
+// Hunting a signal: one sync interval at the start of a transmission
+static uint32_t huntDwellMs(MMDVM_STATE modemState)
+{
+  switch (modemState) {
+    case STATE_DMR:   return 70U;    // data syncs every 60 ms
+    case STATE_YSF:   return 110U;   // a sync every 100 ms frame
+    case STATE_P25:   return 190U;   // a sync every 180 ms LDU
+    case STATE_NXDN:  return 90U;    // a sync every 80 ms frame
+    case STATE_M17:   return 50U;    // a sync every 40 ms frame
+    case STATE_DSTAR: return 200U;   // the header
+    default:          return 200U;
   }
 }
 
@@ -170,30 +213,32 @@ void CIO::process()
     setRX(false);
   }
 
-  if(m_modemState_prev == STATE_DSTAR)
-    scantime = SCAN_TIME;
-  else if(m_modemState_prev == STATE_DMR)
-    scantime = SCAN_TIME * 2U;
-  else if(m_modemState_prev == STATE_YSF)
-    scantime = SCAN_TIME;
-  else if(m_modemState_prev == STATE_P25)
-    scantime = SCAN_TIME;
-  else if(m_modemState_prev == STATE_NXDN)
-    scantime = SCAN_TIME;
-  else if(m_modemState_prev == STATE_M17)
-    scantime = SCAN_TIME;
-  else
-    scantime = SCAN_TIME;
-
-  if(m_modeTimerCnt >= scantime) {
-    m_modeTimerCnt = 0U;
-    if( (m_modemState == STATE_IDLE) && (m_scanPauseCnt == 0U) && m_scanEnable && !m_cwid_state && !m_pocsag_state) {
-      m_scanPos = (m_scanPos + 1U) % m_TotalModes;
-      #if !defined(QUIET_MODE_LEDS)
-      setMode(m_Modes[m_scanPos]);
-      #endif
-      io.ifConf(m_Modes[m_scanPos], true);
+  // Mode scanning. With no signal, each mode in turn for its idle dwell.
+  // When a signal appears (the RSSI, polled as bits arrive), the hunt
+  // starts with the mode last heard, then each mode for one sync interval.
+  // A sync found pauses scanning (setDecode()).
+  bool canScan = (m_modemState == STATE_IDLE) && (m_scanPauseCnt == 0U) && m_scanEnable && !m_cwid_state && !m_pocsag_state;
+  bool hunting = canScan && signalPresent();
+  if (hunting && !m_hunting) {
+    // A signal: start the hunt with the mode last heard
+    m_hunting = true;
+    if (m_lastHeard != STATE_IDLE && m_lastHeard != m_modemState_prev) {
+      for (uint8_t i = 0U; i < m_TotalModes; i++) {
+        if (m_Modes[i] == m_lastHeard) {
+          scanTo(i);
+          break;
+        }
+      }
     }
+  } else if (!hunting && m_hunting) {
+    m_hunting = false;
+  }
+
+  scantime = scanTicks(m_modemState_prev, hunting ? huntDwellMs(m_modemState_prev) : idleDwellMs(m_modemState_prev));
+  if (m_modeTimerCnt >= scantime) {
+    m_modeTimerCnt = 0U;
+    if (canScan)
+      scanTo((m_scanPos + 1U) % m_TotalModes);
   }
 
   if (m_rxBuffer.getData() >= 1U) {
@@ -232,6 +277,83 @@ void CIO::process()
         break;
     }
 
+    // Measure the received signal's frequency error while it decodes
+    signalPoll(m_dcd);
+  }
+}
+
+// Switch the scan to m_Modes[pos]: only the registers that differ between
+// modes are rewritten, and every SCAN_FULL_EVERY switches (some minutes)
+// the full set-up recalibrates the IF filter; the receive buffer is
+// cleared and the new mode's receiver reset.
+void CIO::scanTo(uint8_t pos)
+{
+  m_scanPos = pos;
+  m_modeTimerCnt = 0U;
+  if (++m_scanSwitches >= SCAN_FULL_EVERY) {
+    m_scanSwitches = 0U;
+    io.ifConf(m_Modes[m_scanPos], true);
+  } else {
+    io.ifConf(m_Modes[m_scanPos], false, false);
+  }
+  scanReset(m_Modes[m_scanPos]);
+}
+
+// The LEDs of every mode being scanned, lit together. Shared LEDs (the
+// alternate LED options) are set by the modes' own pin functions, so
+// switching each on in turn after all are off lights the right ones.
+void CIO::scanLeds()
+{
+  modeLeds(STATE_IDLE);
+  for (uint8_t i = 0U; i < m_TotalModes; i++) {
+    switch (m_Modes[i]) {
+      case STATE_DSTAR: DSTAR_pin(true); break;
+      case STATE_DMR:   DMR_pin(true);   break;
+      case STATE_YSF:   YSF_pin(true);   break;
+      case STATE_P25:   P25_pin(true);   break;
+      case STATE_NXDN:  NXDN_pin(true);  break;
+      case STATE_M17:   M17_pin(true);   break;
+      default: break;
+    }
+  }
+}
+
+// After a mode switch while scanning: the bits waiting were received in
+// the last mode, and the new mode's receiver starts afresh.
+void CIO::scanReset(MMDVM_STATE modemState)
+{
+  uint8_t bit, control;
+  while (m_rxBuffer.getData() > 0U)
+    m_rxBuffer.get(bit, control);
+
+  switch (modemState) {
+    case STATE_DSTAR:
+      dstarRX.reset();
+      break;
+    case STATE_DMR:
+#if defined(DUPLEX)
+      if (m_duplex)
+        dmrIdleRX.reset();
+      else
+        dmrDMORX.reset();
+#else
+      dmrDMORX.reset();
+#endif
+      break;
+    case STATE_YSF:
+      ysfRX.reset();
+      break;
+    case STATE_P25:
+      p25RX.reset();
+      break;
+    case STATE_NXDN:
+      nxdnRX.reset();
+      break;
+    case STATE_M17:
+      m17RX.reset();
+      break;
+    default:
+      break;
   }
 }
 
@@ -265,9 +387,10 @@ void CIO::start()
   }
 
 #if defined(ENABLE_SCAN_MODE)
-  if(m_TotalModes > 1U)
+  if(m_TotalModes > 1U) {
     m_scanEnable = true;
-  else {
+    setMode(m_modemState);
+  } else {
     m_scanEnable = false;
     setMode(m_modemState);
   }
@@ -405,7 +528,24 @@ uint8_t CIO::setFreq(uint32_t frequency_rx, uint32_t frequency_tx, uint8_t rf_po
   return 0U;
 }
 
+// The mode LEDs show the host's mode. While scanning, the modem idle,
+// they do not follow the scan (its switches, every 50-400 ms, would make
+// them flicker): the LEDs of every mode being scanned stay lit, and when
+// the host takes a mode, only its LED.
 void CIO::setMode(MMDVM_STATE modemState)
+{
+  if (modemState == STATE_IDLE && m_scanEnable) {
+#if defined(QUIET_MODE_LEDS)
+    modeLeds(STATE_IDLE);
+#else
+    scanLeds();
+#endif
+    return;
+  }
+  modeLeds(modemState);
+}
+
+void CIO::modeLeds(MMDVM_STATE modemState)
 {
 #if defined(USE_ALTERNATE_POCSAG_LEDS)
   if (modemState != STATE_POCSAG) {
@@ -456,6 +596,10 @@ void CIO::setMode(MMDVM_STATE modemState)
 
 void CIO::setDecode(bool dcd)
 {
+  // The mode a scan finds a signal in is tried first next time
+  if (dcd && m_scanEnable)
+    m_lastHeard = m_modemState_prev;
+
   if (dcd != m_dcd) {
     m_scanPauseCnt = 1U;
     COS_pin(dcd ? true : false);

@@ -50,7 +50,8 @@ m_syncCount(0U),
 m_colorCode(0U),
 m_state(DMORXS_NONE),
 m_n(0U),
-m_type(0U)
+m_type(0U),
+m_rssi(0U)
 {
 }
 
@@ -214,6 +215,7 @@ void CDMRDMORX::correlateSync()
       m_endPtr -= DMO_BUFFER_LENGTH_BITS;
 
     m_modeTimerCnt = 0;
+    sampleRSSI();
     //DEBUG4("SYNC MS Data found pos/start/end:", m_dataPtr, m_startPtr, m_endPtr);
   } else if ( (countBits64((m_patternBuffer & DMR_SYNC_BITS_MASK) ^ DMR_MS_VOICE_SYNC_BITS) <= MAX_SYNC_BYTES_ERRS) || \
     (countBits64((m_patternBuffer & DMR_SYNC_BITS_MASK) ^ DMR_S2_VOICE_SYNC_BITS) <= MAX_SYNC_BYTES_ERRS) ) {
@@ -229,6 +231,7 @@ void CDMRDMORX::correlateSync()
       m_endPtr -= DMO_BUFFER_LENGTH_BITS;
 
     m_modeTimerCnt = 0;
+    sampleRSSI();
     //DEBUG4("SYNC MS Voice found pos/start/end: ", m_dataPtr, m_startPtr, m_endPtr);
   }
 }
@@ -278,13 +281,21 @@ void CDMRDMORX::setColorCode(uint8_t colorCode)
   m_colorCode = colorCode;
 }
 
+// The RSSI is taken at the sync, in the middle of the burst: a frame is
+// written at the burst's end, when the radio's transmission (one TDMA slot
+// of two) has stopped, and the ADF7021 then reads the noise floor.
+void CDMRDMORX::sampleRSSI()
+{
+#if defined(SEND_RSSI_DATA)
+  m_rssi = io.sampleRSSI(m_rssi);
+#endif
+}
+
 void CDMRDMORX::writeRSSIData(uint8_t* frame)
 {
 #if defined(SEND_RSSI_DATA)
-  uint16_t rssi = io.readRSSI();
-  
-  frame[34U] = (rssi >> 8) & 0xFFU;
-  frame[35U] = (rssi >> 0) & 0xFFU;
+  frame[34U] = (m_rssi >> 8) & 0xFFU;
+  frame[35U] = (m_rssi >> 0) & 0xFFU;
   
   serial.writeDMRData(true, frame, DMR_FRAME_LENGTH_BYTES + 3U);
 #else

@@ -51,7 +51,10 @@
 
 // Configure receiver gain for ADF7021
 // AGC automatic, default settings:
-#define AD7021_GAIN_AUTO
+// #define AD7021_GAIN_AUTO
+// AGC automatic, LNA reduced gain mode, mixer high linearity, AGC window
+// set low to sit at its lowest gain (input IP3 -3 dBm; -9 dBm at LNA x10):
+#define AD7021_GAIN_AUTO_REDUCED
 // AGC automatic with high LNA linearity:
 // #define AD7021_GAIN_AUTO_LIN
 // AGC OFF, lowest gain:

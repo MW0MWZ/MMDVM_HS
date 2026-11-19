@@ -53,10 +53,12 @@ private:
   DMORX_STATE m_state;
   uint8_t     m_n;
   uint8_t     m_type;
+  uint16_t    m_rssi;      // RSSI at the last sync, mid-burst
 
   void correlateSync();
   void bitsToBytes(uint16_t start, uint8_t count, uint8_t* buffer);
   void writeRSSIData(uint8_t* frame);
+  void sampleRSSI();
 
 };
 

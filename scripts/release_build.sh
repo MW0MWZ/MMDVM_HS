@@ -1,7 +1,8 @@
 #!/bin/bash
 #
 # Builds the firmware for every board in boards.json and writes a release
-# manifest (firmware.json) and SHA256SUMS beside the images.
+# manifest (firmware.json) and SHA256SUMS beside the images. The manifest's
+# format is 1; a change readers must understand bumps it.
 #
 #   scripts/release_build.sh <output dir> [release tag]
 #
@@ -155,7 +156,7 @@ fi
 
 jq -n --arg release "$RELEASE" --arg version "$VERSION" --argjson prerelease "$PRERELEASE" --arg commit "$COMMIT" --arg gitid "$SHORT" \
 	--arg built "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson boards "$boards" \
-	'{release: $release, version: $version, prerelease: $prerelease, commit: $commit, gitid: $gitid, built: $built, boards: $boards}' \
+	'{format: 1, release: $release, version: $version, prerelease: $prerelease, commit: $commit, gitid: $gitid, built: $built, boards: $boards}' \
 	> "$OUT/firmware.json"
 
 (cd "$OUT" && sha256sum -- *.bin firmware.json > SHA256SUMS)

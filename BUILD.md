@@ -724,9 +724,9 @@ Also in ADF7021.h:
 
 - #define ADF7021_N_VER: enable support for narrow band version of ADF7021 (ADF7021N). Disabled by default, in general all boards will have just ADF7021.
 
-- #define ADF7021_ENABLE_4FSK_AFC: enable AFC support for DMR, YSF and P25. This is experimental, depending on your frequency offset this option will improve or not your BER reception.
+- AFC is D-Star's only (the 4FSK modes have none). ADF7021_AFC_RANGE sets its pull-in range either side of the RX frequency in Hz (default 1500), ADF7021_AFC_KI and ADF7021_AFC_KP the loop gains (default 11 and 4, as the datasheet recommends). ADF7021_SIGNAL_MARGIN is how far above the noise floor (dB, default 10) the received level must be for the mode scan to take it as a signal and start hunting.
+- AD7021_GAIN_AUTO_REDUCED (Config.h): AGC on, LNA reduced gain mode, mixer high linearity; ADF7021_AGC_LOW and ADF7021_AGC_HIGH (ADF7021.h) set the AGC window (default 10 and 40).
 
-- #define ADF7021_AFC_POS: enable this option if you can not receive any signal after enable the ADF7021_ENABLE_4FSK_AFC option.
 
 - #define ADF7021_DISABLE_RC_4FSK: disable TX Raised Cosine filter for 4FSK modulation in ADF7021. Default TX pulse shaping filter for 4FSK is not optimum for DMR, YSF and P25. Activating this option might improve audio in 4FSK digital modes.
 

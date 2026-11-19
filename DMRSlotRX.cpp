@@ -62,6 +62,8 @@ m_syncCount2(0U),
 m_state2(DMRRXS_NONE),
 m_n2(0U),
 m_type2(0U),
+m_rssi1(0U),
+m_rssi2(0U),
 m_delayPtr(0U),
 m_colorCode(0U),
 m_delay(0U)
@@ -388,11 +390,17 @@ void CDMRSlotRX::correlateSync()
       m_startPtr2 = startPtr;
       m_endPtr2 = endPtr;
       m_control2 = control;
+#if defined(SEND_RSSI_DATA)
+      m_rssi2 = io.sampleRSSI(m_rssi2);
+#endif
     } else {
       m_syncPtr1 = syncPtr;
       m_startPtr1 = startPtr;
       m_endPtr1 = endPtr;
       m_control1 = control;
+#if defined(SEND_RSSI_DATA)
+      m_rssi1 = io.sampleRSSI(m_rssi1);
+#endif
     }
     DEBUG5("SYNC corr MS Data found slot/pos/start/end:", m_slot ? 2U : 1U, m_dataPtr, startPtr, endPtr);
   } else if (countBits64((m_patternBuffer & DMR_SYNC_BITS_MASK) ^ DMR_MS_VOICE_SYNC_BITS) <= MAX_SYNC_BYTES_ERRS) {
@@ -412,11 +420,17 @@ void CDMRSlotRX::correlateSync()
       m_startPtr2 = startPtr;
       m_endPtr2 = endPtr;
       m_control2 = control;
+#if defined(SEND_RSSI_DATA)
+      m_rssi2 = io.sampleRSSI(m_rssi2);
+#endif
     } else {
       m_syncPtr1 = syncPtr;
       m_startPtr1 = startPtr;
       m_endPtr1 = endPtr;
       m_control1 = control;
+#if defined(SEND_RSSI_DATA)
+      m_rssi1 = io.sampleRSSI(m_rssi1);
+#endif
     }
     DEBUG5("SYNC corr MS Voice found slot/pos/start/end: ", m_slot ? 2U : 1U, m_dataPtr, startPtr, endPtr);
   }
@@ -471,10 +485,11 @@ void CDMRSlotRX::setDelay(uint8_t delay)
   m_delay = delay / 5;
 }
 
+// The RSSI taken at the sync, mid-burst (see DMRDMORX.cpp)
 void CDMRSlotRX::writeRSSIData1()
 {
 #if defined(SEND_RSSI_DATA)
-  uint16_t rssi = io.readRSSI();
+  uint16_t rssi = m_rssi1;
 
   frame1[34U] = (rssi >> 8) & 0xFFU;
   frame1[35U] = (rssi >> 0) & 0xFFU;
@@ -485,10 +500,11 @@ void CDMRSlotRX::writeRSSIData1()
 #endif
 }
 
+// The RSSI taken at the sync, mid-burst (see DMRDMORX.cpp)
 void CDMRSlotRX::writeRSSIData2()
 {
 #if defined(SEND_RSSI_DATA)
-  uint16_t rssi = io.readRSSI();
+  uint16_t rssi = m_rssi2;
 
   frame2[34U] = (rssi >> 8) & 0xFFU;
   frame2[35U] = (rssi >> 0) & 0xFFU;

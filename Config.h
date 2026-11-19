@@ -85,7 +85,7 @@
 // Enable P25 Wide modulation:
 // #define ENABLE_P25_WIDE
 
-// Disable mode LEDs blink during scan mode:
+// Mode LEDs off while scanning (rather than every scanned mode's LED lit):
 // #define QUIET_MODE_LEDS
 
 // Engage a constant or descreet Service LED mode once repeater is running 

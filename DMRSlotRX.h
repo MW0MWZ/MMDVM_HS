@@ -72,6 +72,8 @@ private:
   DMRRX_STATE m_state2;
   uint8_t     m_n2;
   uint8_t     m_type2;
+  uint16_t    m_rssi1;     // RSSI at each slot's last sync, mid-burst
+  uint16_t    m_rssi2;
 
   uint16_t    m_delayPtr;
   uint8_t     m_colorCode;
