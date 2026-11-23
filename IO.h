@@ -28,6 +28,13 @@
 #define LOW      0
 #define HIGH     1
 
+// The service LED's dark level, as the board's config has it
+#if defined(CONSTANT_SRV_LED_INVERTED) || defined(DISCREET_SRV_LED_INVERTED)
+#define SRV_LED_OFF HIGH
+#else
+#define SRV_LED_OFF LOW
+#endif
+
 // HS frequency ranges
 #define VHF1_MIN  144000000
 #define VHF1_MAX  148000000
@@ -120,6 +127,7 @@ public:
   void      setPower(uint8_t power);
   void      setMode(MMDVM_STATE modemState);
   void      setDecode(bool dcd);
+  void      setLedsOff(bool off);
   void      setLoDevYSF(bool ysfLoDev);
   void      resetWatchdog(void);
   uint32_t  getWatchdog(void);
@@ -196,6 +204,7 @@ private:
   uint8_t            m_TotalModes;
   MMDVM_STATE        m_Modes[6];
   bool               m_ledValue;
+  bool               m_ledsOff;
   volatile uint32_t  m_watchdog;
   volatile uint16_t  m_int1counter;
   volatile uint16_t  m_int2counter;

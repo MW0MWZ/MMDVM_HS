@@ -41,6 +41,7 @@ m_hunting(false),
 m_lastHeard(STATE_IDLE),
 m_rxIF(100000U),
 m_ledValue(true),
+m_ledsOff(false),
 m_watchdog(0U),
 m_int1counter(0U),
 m_int2counter(0U)
@@ -592,6 +593,28 @@ void CIO::modeLeds(MMDVM_STATE modemState)
 #if defined(USE_ALTERNATE_M17_LEDS)
   }
 #endif
+}
+
+// Every LED dark (the service, PTT, COR and mode LEDs) until switched back
+// or a reset; switched back, they show the modem's state again
+void CIO::setLedsOff(bool off)
+{
+  if (off) {
+    LED_pin(SRV_LED_OFF);
+    PTT_pin(false);
+    COS_pin(false);
+    modeLeds(STATE_IDLE);
+    m_ledsOff = true;
+    return;
+  }
+
+  if (!m_ledsOff)
+    return;
+
+  m_ledsOff = false;
+  LED_pin(m_ledValue);
+  PTT_pin(m_tx);
+  setMode(m_modemState);
 }
 
 void CIO::setDecode(bool dcd)

@@ -73,6 +73,9 @@ const uint8_t MMDVM_NAK          = 0x7FU;
 
 const uint8_t MMDVM_SERIAL       = 0x80U;
 
+// Pi-Star: every LED dark (1) or as normal (0), until a reset
+const uint8_t MMDVM_LEDS         = 0x8EU;
+
 // Pi-Star: sets the display port's speed until the next GET_VERSION or reset
 const uint8_t MMDVM_SERIAL_SPEED = 0x8FU;
 
@@ -992,6 +995,15 @@ void CSerialPort::process()
             } else {
               DEBUG2("Received invalid POCSAG data", err);
               sendNAK(err);
+            }
+            break;
+
+          case MMDVM_LEDS:
+            if (m_len - 3U == 1U && m_buffer[3U] <= 1U) {
+              io.setLedsOff(m_buffer[3U] == 1U);
+              sendACK();
+            } else {
+              sendNAK(4U);
             }
             break;
 

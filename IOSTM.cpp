@@ -713,6 +713,9 @@ void CIO::TXD_pin(bool on)
 
 void CIO::LED_pin(bool on)
 {
+  if (m_ledsOff)
+    on = SRV_LED_OFF;
+
   GPIO_WriteBit(PORT_LED, PIN_LED, on ? Bit_SET : Bit_RESET);
 }
 
@@ -723,26 +726,41 @@ void CIO::DEB_pin(bool on)
 
 void CIO::DSTAR_pin(bool on)
 {
+  if (m_ledsOff)
+    on = false;
+
   GPIO_WriteBit(PORT_DSTAR_LED, PIN_DSTAR_LED, on ? Bit_SET : Bit_RESET);
 }
 
 void CIO::DMR_pin(bool on)
 {
+  if (m_ledsOff)
+    on = false;
+
   GPIO_WriteBit(PORT_DMR_LED, PIN_DMR_LED, on ? Bit_SET : Bit_RESET);
 }
 
 void CIO::YSF_pin(bool on)
 {
+  if (m_ledsOff)
+    on = false;
+
   GPIO_WriteBit(PORT_YSF_LED, PIN_YSF_LED, on ? Bit_SET : Bit_RESET);
 }
 
 void CIO::P25_pin(bool on)
 {
+  if (m_ledsOff)
+    on = false;
+
   GPIO_WriteBit(PORT_P25_LED, PIN_P25_LED, on ? Bit_SET : Bit_RESET);
 }
 
 void CIO::NXDN_pin(bool on)
 {
+  if (m_ledsOff)
+    on = false;
+
 #if defined(USE_ALTERNATE_NXDN_LEDS)
   GPIO_WriteBit(PORT_YSF_LED, PIN_YSF_LED, on ? Bit_SET : Bit_RESET);
   GPIO_WriteBit(PORT_P25_LED, PIN_P25_LED, on ? Bit_SET : Bit_RESET);
@@ -753,6 +771,9 @@ void CIO::NXDN_pin(bool on)
 
 void CIO::M17_pin(bool on)
 {
+  if (m_ledsOff)
+    on = false;
+
 #if defined(USE_ALTERNATE_M17_LEDS)
   GPIO_WriteBit(PORT_DSTAR_LED, PIN_DSTAR_LED, on ? Bit_SET : Bit_RESET);
   GPIO_WriteBit(PORT_P25_LED, PIN_P25_LED, on ? Bit_SET : Bit_RESET);
@@ -763,6 +784,9 @@ void CIO::M17_pin(bool on)
 
 void CIO::POCSAG_pin(bool on)
 {
+  if (m_ledsOff)
+    on = false;
+
 #if defined(USE_ALTERNATE_POCSAG_LEDS)
   GPIO_WriteBit(PORT_DSTAR_LED, PIN_DSTAR_LED, on ? Bit_SET : Bit_RESET);
   GPIO_WriteBit(PORT_DMR_LED, PIN_DMR_LED, on ? Bit_SET : Bit_RESET);
@@ -773,11 +797,17 @@ void CIO::POCSAG_pin(bool on)
 
 void CIO::PTT_pin(bool on)
 {
+  if (m_ledsOff)
+    on = false;
+
   GPIO_WriteBit(PORT_PTT_LED, PIN_PTT_LED, on ? Bit_SET : Bit_RESET);
 }
 
 void CIO::COS_pin(bool on)
 {
+  if (m_ledsOff)
+    on = false;
+
   GPIO_WriteBit(PORT_COS_LED, PIN_COS_LED, on ? Bit_SET : Bit_RESET);
 }
 

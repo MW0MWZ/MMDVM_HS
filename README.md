@@ -58,6 +58,17 @@ The display port (the Nextion header) runs at `SERIAL_REPEATER_BAUD` (9600). A h
 
 Anything already queued for the display is sent at the old speed first. The speed goes back to `SERIAL_REPEATER_BAUD` on the next `GET_VERSION` (which every host sends when it opens the modem) and on a reset. Nothing changes unless the command is sent. Firmware without this command, and boards without a display port, answer NAK 1.
 
+### LEDs off (`0x8E`)
+
+The LEDs work as always unless a host switches them off:
+
+| | |
+|---|---|
+| Command | `E0 04 8E 01` switches every LED off (service, PTT, COR and mode LEDs); `E0 04 8E 00` puts them back to normal |
+| Reply | ACK; NAK 4 for any other value or length |
+
+Switched off, the LEDs stay dark until they are switched back on or the modem is reset. `GET_VERSION` does not switch them back on, so the setting survives a host opening the modem. Switched back on, they show the modem's state again at once. The service LED's dark level follows the config (`HIGH` with `CONSTANT_SRV_LED_INVERTED` or `DISCREET_SRV_LED_INVERTED`, otherwise `LOW`). Firmware without this command answers NAK 1.
+
 ## Building
 
 The build needs the ARM GCC toolchain, `make`, `git`, `jq` and the [STM32F10X_Lib](https://github.com/juribeparada/STM32F10X_Lib) submodule. To build every board as CI does, in Docker:

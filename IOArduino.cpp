@@ -291,6 +291,9 @@ void CIO::TXD_pin(bool on)
 
 void CIO::LED_pin(bool on) 
 {
+  if (m_ledsOff)
+    on = SRV_LED_OFF;
+
   digitalWrite(PIN_LED, on ? HIGH : LOW);
 }
 
@@ -301,26 +304,41 @@ void CIO::DEB_pin(bool on)
 
 void CIO::DSTAR_pin(bool on) 
 {
+  if (m_ledsOff)
+    on = false;
+
   digitalWrite(PIN_DSTAR_LED, on ? HIGH : LOW);
 }
 
 void CIO::DMR_pin(bool on) 
 {
+  if (m_ledsOff)
+    on = false;
+
   digitalWrite(PIN_DMR_LED, on ? HIGH : LOW);
 }
 
 void CIO::YSF_pin(bool on) 
 {
+  if (m_ledsOff)
+    on = false;
+
   digitalWrite(PIN_YSF_LED, on ? HIGH : LOW);
 }
 
 void CIO::P25_pin(bool on) 
 {
+  if (m_ledsOff)
+    on = false;
+
   digitalWrite(PIN_P25_LED, on ? HIGH : LOW);
 }
 
 void CIO::NXDN_pin(bool on) 
 {
+  if (m_ledsOff)
+    on = false;
+
 #if defined(USE_ALTERNATE_NXDN_LEDS)
   digitalWrite(PIN_YSF_LED, on ? HIGH : LOW);
   digitalWrite(PIN_P25_LED, on ? HIGH : LOW);
@@ -331,6 +349,9 @@ void CIO::NXDN_pin(bool on)
 
 void CIO::POCSAG_pin(bool on)
 {
+  if (m_ledsOff)
+    on = false;
+
 #if defined(USE_ALTERNATE_POCSAG_LEDS)
   digitalWrite(PIN_DSTAR_LED, on ? HIGH : LOW);
   digitalWrite(PIN_DMR_LED, on ? HIGH : LOW);
@@ -341,11 +362,17 @@ void CIO::POCSAG_pin(bool on)
 
 void CIO::PTT_pin(bool on) 
 {
+  if (m_ledsOff)
+    on = false;
+
   digitalWrite(PIN_PTT_LED, on ? HIGH : LOW);
 }
 
 void CIO::COS_pin(bool on) 
 {
+  if (m_ledsOff)
+    on = false;
+
   digitalWrite(PIN_COS_LED, on ? HIGH : LOW);
 }
 
