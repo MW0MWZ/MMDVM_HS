@@ -34,6 +34,8 @@ const uint8_t MMDVM_SET_FREQ     = 0x04U;
 
 // WPSD: an RX and TX offset for each mode (see setOffsets).
 const uint8_t MMDVM_SET_OFFSETS  = 0x0EU;
+// WPSD: how the lights work (see CIO::setLights).
+const uint8_t MMDVM_SET_LIGHTS   = 0x0FU;
 
 const uint8_t MMDVM_CAL_DATA     = 0x08U;
 const uint8_t MMDVM_RSSI_DATA    = 0x09U;
@@ -722,6 +724,14 @@ void CSerialPort::process()
 
           case MMDVM_SET_OFFSETS:
             err = setOffsets(m_buffer + 3U, m_len - 3U);
+            if (err == 0U)
+              sendACK();
+            else
+              sendNAK(err);
+            break;
+
+          case MMDVM_SET_LIGHTS:
+            err = io.setLights(m_buffer + 3U, m_len - 3U);
             if (err == 0U)
               sendACK();
             else
