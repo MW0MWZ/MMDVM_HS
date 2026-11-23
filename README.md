@@ -46,6 +46,18 @@ The firmware and [MMDVM-Host](https://github.com/g4klx/MMDVM-Host) are upgraded 
 - new information is only sent in answer to a new command, which older firmware refuses (NAK), so the host knows not to ask again;
 - existing messages, the version string's board prefix and the configuration layout are never changed.
 
+### Display port speed (`0x8F`)
+
+The display port (the Nextion header) runs at `SERIAL_REPEATER_BAUD` (9600). A host can change its speed for a while, for example to load a screen design faster:
+
+| | |
+|---|---|
+| Command | `E0 07 8F` followed by the speed as 4 bytes, least significant first (115200 is `00 C2 01 00`) |
+| Speeds | 9600, 19200, 38400, 57600 or 115200 |
+| Reply | ACK once the port runs at the new speed; NAK 4 for any other speed or length |
+
+Anything already queued for the display is sent at the old speed first. The speed goes back to `SERIAL_REPEATER_BAUD` on the next `GET_VERSION` (which every host sends when it opens the modem) and on a reset. Nothing changes unless the command is sent. Firmware without this command, and boards without a display port, answer NAK 1.
+
 ## Building
 
 The build needs the ARM GCC toolchain, `make`, `git`, `jq` and the [STM32F10X_Lib](https://github.com/juribeparada/STM32F10X_Lib) submodule. To build every board as CI does, in Docker:

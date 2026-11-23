@@ -76,6 +76,7 @@ private:
   uint8_t  m_len;
   int      m_lastSerialAvail;
   uint16_t m_lastSerialAvailCount;
+  uint32_t m_serialSpeed;
 
   bool    m_debug;
   bool    m_firstCal;
@@ -88,6 +89,10 @@ private:
   uint8_t setMode(const uint8_t* data, uint8_t length);
   void    setMode(MMDVM_STATE modemState);
   uint8_t setFreq(const uint8_t* data, uint8_t length);
+#if defined(SERIAL_REPEATER) || defined(SERIAL_REPEATER_USART1)
+  uint8_t setSerialSpeed(const uint8_t* data, uint8_t length);
+  void    applySerialSpeed(uint32_t speed);
+#endif
 
   // Hardware versions
   void    beginInt(uint8_t n, int speed);
