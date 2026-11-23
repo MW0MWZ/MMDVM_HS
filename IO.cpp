@@ -41,6 +41,9 @@ m_watchdog(0U),
 m_int1counter(0U),
 m_int2counter(0U)
 {
+  for (uint8_t i = 0U; i <= STATE_M17; i++)
+    m_rxOffset[i] = m_txOffset[i] = 0;
+
   Init();
 
   CE_pin(HIGH);
@@ -403,6 +406,14 @@ uint8_t CIO::setFreq(uint32_t frequency_rx, uint32_t frequency_tx, uint8_t rf_po
   m_pocsag_freq_tx = pocsag_freq_tx;
 
   return 0U;
+}
+
+void CIO::setOffsets(MMDVM_STATE modemState, int16_t rx, int16_t tx)
+{
+  if (modemState > STATE_IDLE && modemState <= STATE_M17 && modemState != STATE_POCSAG) {
+    m_rxOffset[modemState] = rx;
+    m_txOffset[modemState] = tx;
+  }
 }
 
 void CIO::setMode(MMDVM_STATE modemState)

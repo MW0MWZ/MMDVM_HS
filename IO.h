@@ -64,6 +64,9 @@
 extern uint32_t  m_frequency_rx;
 extern uint32_t  m_frequency_tx;
 extern uint32_t  m_pocsag_freq_tx;
+
+// WPSD: per-mode offsets (MMDVM_SET_OFFSETS), Hz, at most this far.
+const int16_t OFFSET_MAX = 10000;
 extern uint8_t   m_power;
 
 class CIO {
@@ -117,6 +120,7 @@ public:
   bool      hasTXOverflow(void);
   bool      hasRXOverflow(void);
   uint8_t   setFreq(uint32_t frequency_rx, uint32_t frequency_tx, uint8_t rf_power, uint32_t pocsag_freq_tx);
+  void      setOffsets(MMDVM_STATE modemState, int16_t rx, int16_t tx);
   void      setPower(uint8_t power);
   void      setMode(MMDVM_STATE modemState);
   void      setDecode(bool dcd);
@@ -184,6 +188,8 @@ private:
   uint8_t            m_scanPos;
   uint8_t            m_TotalModes;
   MMDVM_STATE        m_Modes[6];
+  int16_t            m_rxOffset[STATE_M17 + 1];  // per mode, Hz (setOffsets)
+  int16_t            m_txOffset[STATE_M17 + 1];
   bool               m_ledValue;
   volatile uint32_t  m_watchdog;
   volatile uint16_t  m_int1counter;
